@@ -1,0 +1,15 @@
+#lang racket
+
+(define (bad-if x y z) (if x y z))
+
+(define (bad-fact n)
+  (bad-if (= n 0)
+          1
+          (* n (bad-fact (- n 1)))))
+
+(define (ok-if x y z) (if x (y) (z)))
+
+(define (ok-fact n)
+  (ok-if (= n 0)
+          (lambda () 1)
+          (lambda () (* n (ok-fact (- n 1))))))
