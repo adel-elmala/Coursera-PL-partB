@@ -29,8 +29,14 @@
         [#t 
          (let ([hd (car rlist)]
                [tl (cdr rlist)])
-    
-           (apair hd (racketlist->mupllist tl)))]))
+           (cond
+             [(list? hd) (apair (racketlist->mupllist hd)(racketlist->mupllist tl))]
+             [(pair? hd)
+              (let ([first (car hd)]
+                    [second (cdr hd)])
+
+                (apair (apair first second)(racketlist->mupllist tl)))]
+             [#t (apair hd (racketlist->mupllist tl))] ))]))
 
 
 (define (mupllist->racketlist mlist)
@@ -71,6 +77,7 @@
                        (int-num v2)))
                (error "MUPL addition applied to non-number")))]
         ;; CHANGE add more cases here
+        [(aunit? e) e]
         [(int? e) e] ;; is already  a value 
         [(fun? e) (closure env e)] ;; return a closure holding the function and the current env.
         [(closure? e) e]
@@ -88,19 +95,19 @@
                             [new-env (cons (cons name v1) env)]) ;; extend the current env with the variable binding
                      (eval-under-env (mlet-body e) new-env))]
 
-        [(call? e) (let ([cfun (eval-under-env (call-funexp e) env)]
+        [(call? e) (let ([cfun (eval-under-env (call-funexp e) env)] 
                          [actual (eval-under-env (call-actual e) env)])
                      (if (closure? cfun)
                          (letrec ([fun-env (closure-env cfun)] ;; should extend it to hold the actual paramater binded to the fun formal par. + the fun name to the closure for recursion 
                                   [fun (closure-fun cfun)]
                                   [fun-name (fun-nameopt fun)]
                                   [fun-param (fun-formal fun)]
-                                  [body (fun-body fun)])
+                                  [body (fun-body fun)]) 
                            (if fun-name ;; not fasle 
-                               (let ([new-env (cons (cons fun-param actual) (cons (cons fun-name cfun) env))])
+                               (let ([new-env (cons (cons fun-param actual) (cons (cons fun-name cfun) fun-env))])
                                  (eval-under-env body new-env))
                            
-                               (let ([new-env (cons (cons fun-param actual) env)])
+                               (let ([new-env (cons (cons fun-param actual) fun-env)])
                                  (eval-under-env body new-env))
 
                                ))
@@ -144,19 +151,51 @@
         
 ;; Problem 3
 
-(define (ifaunit e1 e2 e3) "CHANGE")
+(define (ifaunit e1 e2 e3) (ifgreater (isaunit e1) (int 0) e2 e3))
 
-(define (mlet* lstlst e2) "CHANGE")
+;; i think it would work if i added a string construct to MUPL
+;; Not Complete
+;;(define (mlet* lstlst e2)
+;;  (mlet "mlst" (racketlist->mupllist lstlst)
+;;        (fun  "mlt" "lst"
+;;              (ifaunit (var "lst")
+;;                       e2
+;;                      (mlet (fst (fst (var "lst"))) (snd (fst (var "lst"))) (call ;;(var "mlt") (snd (var "lst")))))
+;;
+;;              )))
 
-(define (ifeq e1 e2 e3 e4) "CHANGE")
+(define (mlet* lstlst e2)
+  (if (null? lstlst)
+      e2 
+      (mlet (car (car lstlst)) (cdr (car lstlst)) (mlet* (cdr lstlst) e2)))
+  )
+
+(define (ifeq e1 e2 e3 e4)
+  (mlet* (list (cons "_x" e1) (cons "_y" e2))
+         (ifgreater (var "_x") (var "_y") e4 (ifgreater (var "_y") (var "_x") e4 e3)))
+
+  )
 
 ;; Problem 4
 
-(define mupl-map "CHANGE")
+(define mupl-map
+  (fun "map" "func"
+       (fun "helper" "mlst"
+            (ifaunit (var "mlst")
+                     (aunit)
+                     (mlet* (list (cons "hd" (fst (var "mlst"))) (cons "tl" (snd (var "mlst"))))
+                   
+                            (apair (call (var "func") (var "hd"))  (call (var "helper") (var "tl")))
+                            )
+                     )
+            )
+       )
+  )
 
 (define mupl-mapAddN 
   (mlet "map" mupl-map
-        "CHANGE (notice map is now in MUPL scope)"))
+        (fun #f "int" (call (var "map") (fun #f "xs"(add (var "xs") (var "int")))))
+        ))
 
 ;; Challenge Problem
 
